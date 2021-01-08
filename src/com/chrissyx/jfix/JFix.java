@@ -1,156 +1,58 @@
 package com.chrissyx.jfix;
 
-import com.chrissyx.jfix.common.error.JFixError;
+import com.chrissyx.jfix.modules.GuiController;
 
-import com.enterprisedt.net.ftp.FTPException;
-import com.enterprisedt.net.ftp.FileTransferClient;
+import javax.swing.SwingUtilities;
 
-import java.io.File;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.LinkedList;
+import org.slf4j.LoggerFactory;
 
 /**
- * <b>J</b>ava <b>F</b>TP F<b>i</b>letime Fi<b>x</b> manages FTP access and
- * fixes filetimes not possible to set with MDTM or MFMT with SITE UTIME.
- * Uses edtFTPj/Free as FTP client.
+ * Main class and application entry point of JFix.
+ *
+ * <b>J</b>ava <b>F</b>TP F<b>i</b>letime Fi<b>x</b> manages FTP access and fixes timestamps of remote files.
+ * Filetimes are set with FTP commands defined by the bundled plug-ins, e.g. SITE UTIME instead of unsupported MDTM or MFMT server commands.
  *
  * @author Chrissyx
- * @see <a href="http://www.enterprisedt.com/products/edtftpj/overview.html" target="_blank">edtFTPj/Free Homepage</a>
+ * @version 1.0
  */
 public class JFix
 {
     /**
-     * The FTP client being worked with.
+     * Current version number of JFix.
      */
-    private FileTransferClient ftpClient;
+    public static final String VERSION = "1.0";
 
     /**
-     * Date formatter to prepare the filetimes.
+     * Hidden constructor to prevent instances of this class.
      */
-    private final SimpleDateFormat sdf = new SimpleDateFormat("yyyyMMddHHmmss");
-
-    /**
-     * Initializes the FTP client module.
-     *
-     * @param host Host address to conenct to
-     * @param user User name for authentication
-     * @param pass Password of user
-     * @throws JFixError If setting up FTP client failed
-     */
-    public JFix(final String host, final String user, final String pass) throws
-        JFixError
+    private JFix()
     {
-        this.ftpClient = new FileTransferClient();
-        try
-        {
-            this.ftpClient.setRemoteHost(host);
-            this.ftpClient.setUserName(user);
-            this.ftpClient.setPassword(pass);
-        }
-        catch(final FTPException e)
-        {
-            throw new JFixError("Can't setup FTP client!", e);
-        }
-        JFixMain.getLogger().info("JFix initialized!");
     }
 
     /**
-     * Connects to FTP host.
+     * Starts application with GUI by calling {@link GuiController}.
      *
-     * @throws JFixError If connecting failed
+     * @param args Unused arguments
      */
-    public void connect() throws JFixError
+    public static void main(final String[] args)
     {
-        try
+        LoggerFactory.getLogger(JFix.class).info("Starting JFix {}...", JFix.VERSION);
+        LoggerFactory.getLogger(JFix.class).info("Running on {} {} with Java {}", new Object[]
+                {
+                    System.getProperty("os.name"),
+                    System.getProperty("os.version"),
+                    System.getProperty("java.version")
+                });
+        SwingUtilities.invokeLater(new Runnable()
         {
-            this.ftpClient.connect();
-        }
-        catch(final FTPException e)
-        {
-            throw new JFixError("Can't connect to FTP host!", e);
-        }
-        catch(final IOException e)
-        {
-            throw new JFixError(e);
-        }
-        JFixMain.getLogger().info(
-            "Connected to " + this.ftpClient.getRemoteHost() + "!");
-    }
-
-    /**
-     * Disconnects from FTP host.
-     *
-     * @throws JFixError If disconnecting failed
-     */
-    public void disconnect() throws JFixError
-    {
-        try
-        {
-            this.ftpClient.disconnect();
-        }
-        catch(final FTPException e)
-        {
-            throw new JFixError("Can't disconnect from FTP host!", e);
-        }
-        catch(final IOException e)
-        {
-            throw new JFixError(e);
-        }
-        JFixMain.getLogger().info("Disconnected from " + this.ftpClient.
-            getRemoteHost() + "!");
-    }
-
-    /**
-     * Fixes the filestimes of current local files with the ones from the host.
-     *
-     * @param localDir Locale directory to gather the files' timestamp
-     * @param remoteDir Optional remote directory to change to first
-     * @throws JFixError If executing FTP command failed
-     */
-    public void fixFiletimes(final String localDir, final String remoteDir)
-        throws JFixError
-    {
-        if(remoteDir != null)
-            try
+            /**
+             * {@inheritDoc}
+             */
+            @Override
+            public void run()
             {
-                this.ftpClient.changeDirectory(remoteDir);
+                GuiController.getInstance();
             }
-            catch(final FTPException e)
-            {
-                throw new JFixError(
-                    "Can't change remote directory to '" + remoteDir + "'!", e);
-            }
-            catch(final IOException e)
-            {
-                throw new JFixError(e);
-            }
-        final LinkedList<String> commands = new LinkedList<String>();
-        //Create command list
-        for(final File curFile : new File(localDir).listFiles())
-        {
-            final String curTime = this.sdf.format(new Date(
-                curFile.lastModified()));
-            commands.add("SITE UTIME " + curFile.getName() + " " + curTime + " "
-                + curTime + " " + curTime + " UTC");
-        }
-        //Execute commands
-        for(final String curCommand : commands)
-            try
-            {
-                JFixMain.getLogger().info("Executing '" + curCommand + "'...\n"
-                    + this.ftpClient.executeCommand(curCommand));
-            }
-            catch(final FTPException e)
-            {
-                throw new JFixError(
-                    "Can't execute '" + curCommand + "' command!", e);
-            }
-            catch(final IOException e)
-            {
-                throw new JFixError(e);
-            }
-        JFixMain.getLogger().info("Executed " + commands.size() + " commands!");
+        });
     }
 }
